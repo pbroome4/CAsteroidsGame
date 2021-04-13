@@ -1,10 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 
 #include <asteroids.h>
 #include <player.h>
+#include <asteroid.h>
 
 // general stuff
 void must_init(bool test, char *desc){
@@ -12,6 +15,37 @@ void must_init(bool test, char *desc){
         printf("%s failed to init\n", desc);
         exit(1);
     }
+}
+
+/**
+ * rand int between [x,y)
+ */
+int between(int x, int y){
+    return rand()%(y-x) + x;
+}
+
+float between_f(float x, float y){
+    return (y-x) * ((float)rand() / RAND_MAX) + x;
+}
+
+bool collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2){
+    if(ax2 < bx1 || ay2 < by1 || ax1 > bx2 || ay1 > by1)
+        return false;
+    
+    return true;
+}
+
+int max(int a, int b){
+    return (a > b)? a : b;
+}
+int sgn(float x){
+    if(x > 0){
+        return 1;
+    }
+    if (x == 0.0){
+        return 0;
+    }
+    return -1;
 }
 
 // display
@@ -75,11 +109,12 @@ void keyboard_update(ALLEGRO_EVENT event){
 
 //main logic
 #define FPS 30.0
+long frames;
+bool game_over;
 
 int main(int argc, char **argv){
     must_init(al_init(), "allegro");
     must_init(al_init_primitives_addon(), "allegro_primitives");
-
 
     ALLEGRO_EVENT_QUEUE *queue = al_create_event_queue();
     must_init(queue, "event queue");
@@ -90,13 +125,18 @@ int main(int argc, char **argv){
     disp_init();
     keyboard_init();
     ship_init();
+    asteroids_init();
 
     al_register_event_source(queue, al_get_display_event_source(disp));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_keyboard_event_source());
 
+    frames = 0;
+    srand((unsigned int) time(NULL));
+
     ALLEGRO_EVENT event;
-    bool done = false;
+    game_over = false;
+    bool redraw = true;
     al_start_timer(timer);
     while(1){
         al_wait_for_event(queue, &event);
@@ -105,21 +145,29 @@ int main(int argc, char **argv){
         switch(event.type){
             case ALLEGRO_EVENT_TIMER:                
                 if(keys[ALLEGRO_KEY_ESCAPE]){
-                    done = true;
+                    game_over = true;
                     break;
                 }
 
-                disp_pre_draw();
-                ship_draw();
-                disp_post_draw();
+                ship_update();
+                asteroids_update();
 
+                frames++;
+                redraw = true;
                 break;
             case ALLEGRO_EVENT_DISPLAY_CLOSE:
-                done = true;
+                game_over = true;
                 break;
         }
-        if(done == true){
+        if(game_over == true){
             break;
+        }
+
+        if(redraw){
+            disp_pre_draw();
+            ship_draw();
+            asteroids_draw();
+            disp_post_draw();
         }
     }
 
